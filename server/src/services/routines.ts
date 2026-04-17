@@ -46,7 +46,13 @@ import { logActivity } from "./activity-log.js";
 const OPEN_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked"];
 const LIVE_HEARTBEAT_RUN_STATUSES = ["queued", "running"];
 const TERMINAL_ISSUE_STATUSES = new Set(["done", "cancelled"]);
-const MAX_CATCH_UP_RUNS = 25;
+// Cap how many missed runs a single tick will enqueue when a routine uses
+// `enqueue_missed_with_cap`. After scheduler downtime (deploy, crash, clock
+// skew) a routine firing every 5 minutes can accumulate hours of overdue
+// ticks; replaying all of them creates a thundering herd of agent runs and
+// burns budget for work the user almost never actually wants caught up.
+// Three is enough to notice and resume, without fanning out to 25× spend.
+const MAX_CATCH_UP_RUNS = 3;
 const WEEKDAY_INDEX: Record<string, number> = {
   Sun: 0,
   Mon: 1,
