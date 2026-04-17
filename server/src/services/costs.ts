@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { activityLog, agents, companies, costEvents, issues, projects } from "@paperclipai/db";
+import { activityLog, agents, companies, costEvents, issues, projects, routines } from "@paperclipai/db";
 import { notFound, unprocessable } from "../errors.js";
 import { budgetService, type BudgetServiceHooks } from "./budgets.js";
 
@@ -313,6 +313,38 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
           costEvents.model,
         )
         .orderBy(costEvents.provider, costEvents.biller, costEvents.billingType, costEvents.model);
+    },
+
+    byRoutine: async (companyId: string, range?: CostDateRange) => {
+      const routineIdAsText = sql<string>`${routines.id}::text`;
+      const conditions: ReturnType<typeof eq>[] = [
+        eq(costEvents.companyId, companyId),
+        eq(issues.originKind, "routine_execution"),
+        isNotNull(issues.originId),
+      ];
+      if (range?.from) conditions.push(gte(costEvents.occurredAt, range.from));
+      if (range?.to) conditions.push(lte(costEvents.occurredAt, range.to));
+
+      const costCentsExpr = sumAsNumber(costEvents.costCents);
+
+      return db
+        .select({
+          routineId: issues.originId,
+          routineTitle: routines.title,
+          routineStatus: routines.status,
+          costCents: costCentsExpr,
+          inputTokens: sumAsNumber(costEvents.inputTokens),
+          cachedInputTokens: sumAsNumber(costEvents.cachedInputTokens),
+          outputTokens: sumAsNumber(costEvents.outputTokens),
+          runCount: sql<number>`count(distinct ${costEvents.heartbeatRunId})::int`,
+          issueCount: sql<number>`count(distinct ${costEvents.issueId})::int`,
+        })
+        .from(costEvents)
+        .innerJoin(issues, eq(costEvents.issueId, issues.id))
+        .leftJoin(routines, eq(routineIdAsText, issues.originId))
+        .where(and(...conditions))
+        .groupBy(issues.originId, routines.title, routines.status)
+        .orderBy(desc(costCentsExpr));
     },
 
     byProject: async (companyId: string, range?: CostDateRange) => {
