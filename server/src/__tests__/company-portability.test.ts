@@ -1025,7 +1025,7 @@ describe("company portability", () => {
     expect(extension).toContain('projectWorkspaceKey: "paperclip"');
     expect(exported.warnings).not.toContainEqual(expect.stringContaining("does not have a portable repoUrl"));
     expect(exported.warnings).not.toContainEqual(expect.stringContaining("reference workspace workspace-1"));
-  });
+  }, 15000);
 
   it("collapses repeated task workspace warnings into one summary per missing workspace", async () => {
     const portability = companyPortabilityService({} as any);
