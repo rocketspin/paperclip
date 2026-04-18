@@ -1,0 +1,1 @@
+ALTER TABLE "agent_api_keys" ADD COLUMN "key_hash_argon2" text;

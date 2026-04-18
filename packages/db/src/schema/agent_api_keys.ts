@@ -10,6 +10,12 @@ export const agentApiKeys = pgTable(
     companyId: uuid("company_id").notNull().references(() => companies.id),
     name: text("name").notNull(),
     keyHash: text("key_hash").notNull(),
+    // Argon2id hash of the same token. Written alongside keyHash for new rows
+    // as defense-in-depth: if the DB is leaked, keyHash (SHA-256) lookup gives
+    // an attacker the matching row, but they still need to crack this hash to
+    // actually use the key. Null for legacy rows — SHA-256 verification path
+    // handles those unchanged.
+    keyHashArgon2: text("key_hash_argon2"),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -8,6 +8,7 @@ import type { DeploymentMode } from "@paperclipai/shared";
 import type { BetterAuthSessionResult } from "../auth/better-auth.js";
 import { logger } from "./logger.js";
 import { boardAuthService } from "../services/board-auth.js";
+import { verifyWithArgon2Defense } from "../services/api-key-hash.js";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -107,6 +108,18 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
       .from(agentApiKeys)
       .where(and(eq(agentApiKeys.keyHash, tokenHash), isNull(agentApiKeys.revokedAt)))
       .then((rows) => rows[0] ?? null);
+
+    // Defense-in-depth: if the row was created with the argon2 column
+    // populated, also verify the argon2 hash. Legacy rows (null) pass
+    // through on the sha256 match alone.
+    if (key && !(await verifyWithArgon2Defense(token, key.keyHashArgon2))) {
+      logger.warn(
+        { keyId: key.id },
+        "agent API key: sha256 matched but argon2 verify failed (possible DB tamper)",
+      );
+      next();
+      return;
+    }
 
     if (!key) {
       const claims = verifyLocalAgentJwt(token);
