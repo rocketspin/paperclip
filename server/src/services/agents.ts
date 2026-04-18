@@ -588,7 +588,12 @@ export function agentService(db: Db) {
       }
 
       const token = createToken();
-      const keyHash = hashToken(token);
+      // Two-hash scheme: indexed sha256 lookup + argon2id defense-in-depth.
+      // See services/api-key-hash.ts for rationale.
+      const { lookupHash: apiLookupHash, verificationHash: apiVerificationHash } =
+        await import("./api-key-hash.js");
+      const keyHash = apiLookupHash(token);
+      const keyHashArgon2 = await apiVerificationHash(token);
       const created = await db
         .insert(agentApiKeys)
         .values({
@@ -596,6 +601,7 @@ export function agentService(db: Db) {
           companyId: existing.companyId,
           name,
           keyHash,
+          keyHashArgon2,
         })
         .returning()
         .then((rows) => rows[0]);

@@ -8,6 +8,7 @@ import { agentApiKeys, companyMemberships, instanceUserRoles } from "@paperclipa
 import type { DeploymentMode } from "@paperclipai/shared";
 import type { BetterAuthSessionResult } from "../auth/better-auth.js";
 import { logger } from "../middleware/logger.js";
+import { verifyWithArgon2Defense } from "../services/api-key-hash.js";
 import { subscribeCompanyLiveEvents } from "../services/live-events.js";
 
 interface WsSocket {
@@ -160,6 +161,15 @@ async function authorizeUpgrade(
     .then((rows) => rows[0] ?? null);
 
   if (!key || key.companyId !== companyId) {
+    return null;
+  }
+
+  // Defense-in-depth argon2 check (see services/api-key-hash.ts)
+  if (!(await verifyWithArgon2Defense(token, key.keyHashArgon2))) {
+    logger.warn(
+      { keyId: key.id },
+      "ws auth: sha256 matched but argon2 verify failed",
+    );
     return null;
   }
 

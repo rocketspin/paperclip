@@ -29,6 +29,7 @@ import {
 } from "@paperclipai/adapter-utils/server-utils";
 import { trackAgentCreated } from "@paperclipai/shared/telemetry";
 import { validate } from "../middleware/validate.js";
+import { rateLimits } from "../middleware/rate-limit.js";
 import {
   agentService,
   agentInstructionsService,
@@ -1362,7 +1363,7 @@ export function agentRoutes(db: Db) {
     res.json(state);
   });
 
-  router.post("/companies/:companyId/agent-hires", validate(createAgentHireSchema), async (req, res) => {
+  router.post("/companies/:companyId/agent-hires", rateLimits.agentHire(), validate(createAgentHireSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     await assertCanCreateAgentsForCompany(req, companyId);
     const sourceIssueIds = parseSourceIssueIds(req.body);
@@ -1534,7 +1535,7 @@ export function agentRoutes(db: Db) {
     res.status(201).json({ agent, approval });
   });
 
-  router.post("/companies/:companyId/agents", validate(createAgentSchema), async (req, res) => {
+  router.post("/companies/:companyId/agents", rateLimits.agentCreate(), validate(createAgentSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
@@ -2159,7 +2160,7 @@ export function agentRoutes(db: Db) {
     res.json(keys);
   });
 
-  router.post("/agents/:id/keys", validate(createAgentKeySchema), async (req, res) => {
+  router.post("/agents/:id/keys", rateLimits.apiKeyCreate(), validate(createAgentKeySchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await getAccessibleAgent(req, res, id);

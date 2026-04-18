@@ -40,6 +40,7 @@ import {
 } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import { validate } from "../middleware/validate.js";
+import { rateLimits } from "../middleware/rate-limit.js";
 import {
   accessService,
   agentService,
@@ -1599,7 +1600,7 @@ export function accessRoutes(
     res.json(challenge);
   });
 
-  router.post("/board-claim/:token/claim", async (req, res) => {
+  router.post("/board-claim/:token/claim", rateLimits.boardClaim(), async (req, res) => {
     const token = (req.params.token as string).trim();
     const code =
       typeof req.body?.code === "string" ? req.body.code.trim() : undefined;
@@ -1638,6 +1639,7 @@ export function accessRoutes(
 
   router.post(
     "/cli-auth/challenges",
+    rateLimits.cliAuth(),
     validate(createCliAuthChallengeSchema),
     async (req, res) => {
       const created = await boardAuth.createCliAuthChallenge(req.body);
